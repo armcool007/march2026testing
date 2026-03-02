@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pod-deploy-war4
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: war4
+  template:
+    metadata:
+      name: test-1      
+      labels:
+        app: war4
+    spec:
+      containers:
+        - name: war-test
+          image: armcool004/war4
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: war-svc
+spec:
+  selector:
+    app: war4
+  type: NodePort
+  ports:
+    - port: 80
+      targetPort: 8080
+      nodePort: 30785
+
