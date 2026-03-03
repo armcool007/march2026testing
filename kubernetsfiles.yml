@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: appwar4
-          image: armcool004/war4
+          image: armcool004/warapptesting
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
