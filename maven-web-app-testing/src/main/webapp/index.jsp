@@ -110,7 +110,7 @@
 <body>
 
   <header>
-    <h1>********* DevOps Word ********</h1>
+    <h1>********* LINUX Word ********</h1>
     <p>Upgrade your career with our industry-ready training programs</p>
   </header>
 
