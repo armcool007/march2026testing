@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: front-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      name: front
+  template:
+    metadata:
+      labels:
+        name: front
+    spec:
+      containers:
+        - name: front-end-app
+          image: armcool004/front-end-app
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 4200
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: front-svc
+spec:
+  selector:
+    name: front
+  type: LoadBalancer
+  ports:
+    - port: 80
+      targetPort: 4200
+
