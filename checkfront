@@ -1,0 +1,246 @@
+# 🗄️ Database Connection Troubleshooting Guide
+### PostgreSQL & Oracle DB — Web Application Connection Issues
+
+---
+
+## 📋 Table of Contents
+1. [Service Running Check](#1--service-running-check)
+2. [Port Open Check](#2--port-open-check)
+3. [Firewall Check](#3--firewall-check)
+4. [Credentials Check](#4--credentials-check)
+5. [Config File Check](#5--config-file-check)
+6. [Connection Pool Check](#6--connection-pool-check)
+7. [Logs Check](#7--logs-check)
+8. [pg_hba.conf Common Issues](#8--pg_hbaconf-common-issues)
+9. [Quick Checklist](#9--quick-checklist)
+
+---
+
+## 1. 🔌 Service Running Check
+
+Sabse pehle check karo ki DB service chal rahi hai ya nahi.
+
+**PostgreSQL:**
+```bash
+sudo systemctl status postgresql
+sudo systemctl start postgresql      # agar band ho
+sudo systemctl enable postgresql     # auto-start on boot
+```
+
+**Oracle:**
+```bash
+lsnrctl status
+lsnrctl start                        # agar band ho
+```
+
+---
+
+## 2. 🌐 Port Open Check
+
+DB sahi port pe sun raha hai ya nahi.
+
+**PostgreSQL (Default Port: 5432):**
+```bash
+netstat -tlnp | grep 5432
+# ya
+ss -tlnp | grep 5432
+```
+
+**Oracle (Default Port: 1521):**
+```bash
+netstat -tlnp | grep 1521
+# ya
+ss -tlnp | grep 1521
+```
+
+---
+
+## 3. 🔥 Firewall Check
+
+Firewall DB port block toh nahi kar raha.
+
+**UFW (Ubuntu/Debian):**
+```bash
+# PostgreSQL
+sudo ufw allow 5432
+sudo ufw status
+
+# Oracle
+sudo ufw allow 1521
+sudo ufw status
+```
+
+**Firewalld (CentOS/RHEL):**
+```bash
+# PostgreSQL
+sudo firewall-cmd --permanent --add-port=5432/tcp
+sudo firewall-cmd --reload
+
+# Oracle
+sudo firewall-cmd --permanent --add-port=1521/tcp
+sudo firewall-cmd --reload
+```
+
+---
+
+## 4. 👤 Credentials Check
+
+Username, password aur hostname sahi hain ya nahi.
+
+**PostgreSQL:**
+```bash
+psql -U username -d dbname -h hostname -p 5432
+```
+
+**Oracle:**
+```bash
+sqlplus username/password@hostname:1521/servicename
+```
+
+> ⚠️ **Note:** Password mein special characters hain toh quotes use karo.
+
+---
+
+## 5. 📄 Config File Check
+
+### PostgreSQL — `pg_hba.conf`
+
+```bash
+# File location dhundo
+sudo find / -name "pg_hba.conf" 2>/dev/null
+
+# File dekho
+cat /etc/postgresql/*/main/pg_hba.conf
+```
+
+#### ✅ Sahi Config Example:
+```
+# TYPE  DATABASE   USER   ADDRESS          METHOD
+local   all        all                     peer
+host    all        all    127.0.0.1/32     md5
+host    all        all    ::1/128          md5
+host    all        all    0.0.0.0/0        md5    # Remote allow
+```
+
+#### ❌ Common Galti — REJECT lines:
+```
+host    all        all    all              reject   # ← YEH BLOCK KARTA HAI!
+```
+> 🔴 `reject` ki jagah `md5` ya `scram-sha-256` use karo.
+
+### PostgreSQL — `postgresql.conf`
+
+```bash
+# Remote connections allow karne ke liye
+listen_addresses = '*'        # default 'localhost' hota hai — change karo
+port = 5432
+```
+
+```bash
+# Changes apply karne ke liye reload
+sudo systemctl reload postgresql
+```
+
+### Oracle — `tnsnames.ora`
+
+```bash
+cat $ORACLE_HOME/network/admin/tnsnames.ora
+```
+
+#### Example Entry:
+```
+MYDB =
+  (DESCRIPTION =
+    (ADDRESS = (PROTOCOL = TCP)(HOST = myhost)(PORT = 1521))
+    (CONNECT_DATA =
+      (SERVER = DEDICATED)
+      (SERVICE_NAME = myservice)
+    )
+  )
+```
+
+---
+
+## 6. 📦 Connection Pool Check
+
+Zyada connections hone se naye connections reject ho jaate hain.
+
+**PostgreSQL:**
+```sql
+-- Active connections dekho
+SELECT count(*) FROM pg_stat_activity;
+
+-- Max allowed connections
+SHOW max_connections;
+
+-- Idle connections band karo
+SELECT pg_terminate_backend(pid)
+FROM pg_stat_activity
+WHERE state = 'idle'
+AND state_change < NOW() - INTERVAL '10 minutes';
+```
+
+**Oracle:**
+```sql
+-- Active sessions
+SELECT count(*) FROM v$session;
+
+-- Session details
+SELECT username, status, machine FROM v$session;
+```
+
+---
+
+## 7. 📝 Logs Check
+
+Logs mein exact error milega.
+
+**PostgreSQL:**
+```bash
+# Ubuntu/Debian
+tail -f /var/log/postgresql/postgresql-*.log
+
+# CentOS/RHEL
+tail -f /var/lib/pgsql/data/pg_log/postgresql-*.log
+```
+
+**Oracle:**
+```bash
+tail -f $ORACLE_BASE/diag/rdbms/*/*/trace/alert_*.log
+```
+
+> 💡 **Tip:** Error message ko copy karke Google karo — exact solution milega.
+
+---
+
+## 8. 🛠️ pg_hba.conf Common Issues
+
+| Problem | Reason | Fix |
+|---|---|---|
+| `reject` method | Sabhi connections block | `md5` use karo |
+| `peer` auth fail | Remote user local user se match nahi | `md5` use karo |
+| IP not matching | Wrong subnet | Correct IP/CIDR likho |
+| Changes not applied | Reload nahi kiya | `systemctl reload postgresql` |
+
+---
+
+## 9. ✅ Quick Checklist
+
+Ek ek step follow karo:
+
+- [ ] **Service chal rahi hai?** — `systemctl status postgresql`
+- [ ] **Port open hai?** — `netstat -tlnp | grep 5432`
+- [ ] **Firewall allow kar raha hai?** — `ufw status`
+- [ ] **Username/Password sahi hai?** — `psql -U user -h host`
+- [ ] **pg_hba.conf mein `reject` toh nahi?** — Config check karo
+- [ ] **`listen_addresses = '*'` set hai?** — `postgresql.conf` check karo
+- [ ] **Connection pool full toh nahi?** — `pg_stat_activity` check karo
+- [ ] **Logs mein kya error hai?** — `tail -f postgresql.log`
+
+---
+
+> 📌 **Golden Rule:** Hamesha **logs pehle dekho** — wahan exact error hoti hai jo seedha solution bata deti hai.
+
+---
+
+*Guide prepared for PostgreSQL & Oracle DB connection troubleshooting on Linux systems.*
