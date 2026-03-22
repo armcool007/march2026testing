@@ -26,11 +26,9 @@ kind: Service
 metadata:
   name: amazon-svc
 spec:
-  type: NodePort
+  type: LoadBalancer
   selector:
     name: amazing
   ports:
     - port: 3000
       targetPort: 3000
-      nodePort: 30785
-
