@@ -26,11 +26,10 @@ kind: Service
 metadata:
   name: star-svc
 spec:
-  type: NodePort
+  type: LoadBalancer
   selector:
     app: tiger
   ports:
     - port: 3000
       targetPort: 3000
-      nodePort: 30785
   
