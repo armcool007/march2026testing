@@ -1,0 +1,48 @@
+pipeline {
+    agent any
+    environment {
+        scanner=tool 'sonarqube-scanner'
+    }
+    stages {
+        stage('git') {
+            steps {
+                git branch: 'starbuks', url: 'https://github.com/armcool007/march2026testing.git'
+            }
+        }
+        stage('sonarqube') {
+            steps {
+                withSonarQubeEnv('sonarqube') {
+                    sh "$scanner/bin/sonar-scanner -Dsonar.projectName=starbuks -Dsonar.projectKey=starbuks"
+                }
+            }
+        }
+        stage('quality-gates') {
+            steps {
+                waitForQualityGate abortPipeline: false, credentialsId: 'sonarqube-cred'
+            }
+        }
+        stage('docker-build-and-push') {
+            steps {
+                withDockerRegistry(credentialsId: 'dockeracctdetail', url: 'https://index.docker.io/v1/') {
+                    sh '''docker build -t armcool004/starbuks:revision .
+                          docker push armcool004/starbuks:revision'''
+                }
+            }
+        }
+        stage('trivy-docker-fs-scan') {
+            steps {
+                sh 'trivy fs . > trivyfs.txt'
+            }
+        }
+        stage('trivy-docker-image-scan') {
+            steps {
+                sh 'trivy image armcool004/starbuks:revision > trivy_img_scan.txt'
+            }
+        }
+        stage('k8s') {
+            steps {
+                sh 'kubectl apply -f *.yml'
+            }
+        }
+    }
+}
