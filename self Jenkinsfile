@@ -1,0 +1,49 @@
+pipeline {
+    agent any
+    environment {
+        scanner=tool 'sonarqube-scanner'
+    }
+
+    stages {
+        stage('git pul') {
+            steps {
+                git branch: 'bingo', url: 'https://github.com/armcool007/march2026testing.git'
+            }
+        }
+        stage('sonarqube') {
+            steps {
+                withSonarQubeEnv('sonarqube') {
+                    sh "$scanner/bin/sonar-scanner -Dsonar.projectName=bingo -Dsonar.projectKey=bingo"
+                }
+            }
+        }
+        stage('quality gates') {
+            steps {
+                waitForQualityGate abortPipeline: false, credentialsId: 'sonarqube-cred'
+            }
+        }
+        stage('docker-image create and push') {
+            steps {
+                withDockerRegistry(credentialsId: 'dockeracctdetail', url: 'https://index.docker.io/v1/') {
+                    sh '''docker build -t armcool004/bingo:revision .
+                      docker push armcool004/bingo:revision'''
+                }
+            }
+        }
+        stage('trivy fs scan') {
+            steps {
+                sh 'trivy fs . > trivyfs_scan.txt'
+            }
+        }
+        stage('trivy image scan') {
+            steps {
+                sh 'trivy image armcool004/bingo:revision > trivyimagescan.txt'
+            }
+        }
+        stage('k8s') {
+            steps {
+                sh 'kubectl apply -f *.yml'
+            }
+        }
+    }
+}
