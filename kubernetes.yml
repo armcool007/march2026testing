@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: starone
-          image: armcool004/starbuks:may
+          image: armcool004/starbucks:may
           imagePullPolicy: Always
           ports:
             - containerPort: 3000
